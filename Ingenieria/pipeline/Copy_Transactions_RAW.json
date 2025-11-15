@@ -1,0 +1,341 @@
+{
+	"name": "Copy_Transactions_RAW",
+	"properties": {
+		"activities": [
+			{
+				"name": "Copy_Transactions",
+				"type": "Copy",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "SqlServerSource",
+						"sqlReaderQuery": "SELECT * FROM dbo.transactions;",
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"sink": {
+						"type": "ParquetSink",
+						"storeSettings": {
+							"type": "AzureBlobFSWriteSettings",
+							"copyBehavior": "PreserveHierarchy"
+						},
+						"formatSettings": {
+							"type": "ParquetWriteSettings"
+						}
+					},
+					"enableStaging": true,
+					"stagingSettings": {
+						"linkedServiceName": {
+							"referenceName": "LS_ADLS_DataLakeHouse",
+							"type": "LinkedServiceReference"
+						}
+					},
+					"translator": {
+						"type": "TabularTranslator",
+						"typeConversion": true,
+						"typeConversionSettings": {
+							"allowDataTruncation": true,
+							"treatBooleanAsNumber": false
+						}
+					}
+				},
+				"inputs": [
+					{
+						"referenceName": "DS_SQL_transactions",
+						"type": "DatasetReference"
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "DS_ADLS_raw_transactions",
+						"type": "DatasetReference",
+						"parameters": {
+							"FolderPath": {
+								"value": "datalake-fraudes/raw/@{formatDateTime(utcNow(),'yyyy/MM/dd')}",
+								"type": "Expression"
+							},
+							"FileName": {
+								"value": "transactions_@{formatDateTime(utcNow(),'HHmmss')}.parquet",
+								"type": "Expression"
+							}
+						}
+					}
+				]
+			},
+			{
+				"name": "Copy_customer_profiles",
+				"description": "Se copia el perfil del cliente.",
+				"type": "Copy",
+				"dependsOn": [
+					{
+						"activity": "Copy_Transactions",
+						"dependencyConditions": [
+							"Completed"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "SqlServerSource",
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"sink": {
+						"type": "ParquetSink",
+						"storeSettings": {
+							"type": "AzureBlobFSWriteSettings"
+						},
+						"formatSettings": {
+							"type": "ParquetWriteSettings"
+						}
+					},
+					"enableStaging": false,
+					"translator": {
+						"type": "TabularTranslator",
+						"typeConversion": true,
+						"typeConversionSettings": {
+							"allowDataTruncation": true,
+							"treatBooleanAsNumber": false
+						}
+					}
+				},
+				"inputs": [
+					{
+						"referenceName": "DS_SQL_CustomerProfiles",
+						"type": "DatasetReference"
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "DS_ADLS_raw_CustomerProfiles",
+						"type": "DatasetReference",
+						"parameters": {
+							"FolderPath": "datalake-fraudes/raw/@{formatDateTime(utcNow(),'yyyy/MM/dd')}",
+							"FileName": {
+								"value": "CustomerProfiles_@{formatDateTime(utcNow(),'HHmmss')}.parquet",
+								"type": "Expression"
+							}
+						}
+					}
+				]
+			},
+			{
+				"name": "Copy_Merchant_Risk",
+				"type": "Copy",
+				"dependsOn": [
+					{
+						"activity": "Copy_customer_profiles",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "SqlServerSource",
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"sink": {
+						"type": "ParquetSink",
+						"storeSettings": {
+							"type": "AzureBlobFSWriteSettings"
+						},
+						"formatSettings": {
+							"type": "ParquetWriteSettings"
+						}
+					},
+					"enableStaging": false,
+					"translator": {
+						"type": "TabularTranslator",
+						"typeConversion": true,
+						"typeConversionSettings": {
+							"allowDataTruncation": true,
+							"treatBooleanAsNumber": false
+						}
+					}
+				},
+				"inputs": [
+					{
+						"referenceName": "DS_SQL_Merchant_Risk",
+						"type": "DatasetReference"
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "DS_ADLS_raw_Merchant_Risk",
+						"type": "DatasetReference",
+						"parameters": {
+							"FIlename": {
+								"value": "MerchantRisk_@{formatDateTime(utcNow(),'HHmmss')}.parquet",
+								"type": "Expression"
+							},
+							"FolderPath": "datalake-fraudes/raw/@{formatDateTime(utcNow(),'yyyy/MM/dd')}"
+						}
+					}
+				]
+			},
+			{
+				"name": "Copy_TransactionFeatures",
+				"type": "Copy",
+				"dependsOn": [
+					{
+						"activity": "Copy_Merchant_Risk",
+						"dependencyConditions": [
+							"Completed"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "SqlServerSource",
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"sink": {
+						"type": "ParquetSink",
+						"storeSettings": {
+							"type": "AzureBlobFSWriteSettings"
+						},
+						"formatSettings": {
+							"type": "ParquetWriteSettings"
+						}
+					},
+					"enableStaging": false,
+					"translator": {
+						"type": "TabularTranslator",
+						"typeConversion": true,
+						"typeConversionSettings": {
+							"allowDataTruncation": true,
+							"treatBooleanAsNumber": false
+						}
+					}
+				},
+				"inputs": [
+					{
+						"referenceName": "DS_SQL_TransactionFeatures",
+						"type": "DatasetReference"
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "DS_ADLS_raw_TransactionsFeatures",
+						"type": "DatasetReference",
+						"parameters": {
+							"FileName": {
+								"value": "TransactionsFeatures_@{formatDateTime(utcNow(),'HHmmss')}.parquet",
+								"type": "Expression"
+							},
+							"FolderPath": "datalake-fraudes/raw/@{formatDateTime(utcNow(),'yyyy/MM/dd')}"
+						}
+					}
+				]
+			},
+			{
+				"name": "Copy_DeviceRisk",
+				"type": "Copy",
+				"dependsOn": [
+					{
+						"activity": "Copy_TransactionFeatures",
+						"dependencyConditions": [
+							"Completed"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "SqlServerSource",
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"sink": {
+						"type": "ParquetSink",
+						"storeSettings": {
+							"type": "AzureBlobFSWriteSettings"
+						},
+						"formatSettings": {
+							"type": "ParquetWriteSettings"
+						}
+					},
+					"enableStaging": false,
+					"translator": {
+						"type": "TabularTranslator",
+						"typeConversion": true,
+						"typeConversionSettings": {
+							"allowDataTruncation": true,
+							"treatBooleanAsNumber": false
+						}
+					}
+				},
+				"inputs": [
+					{
+						"referenceName": "DS_SQL_DeviceRisk",
+						"type": "DatasetReference"
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "DS_ADLS_raw_DeviceRisk",
+						"type": "DatasetReference",
+						"parameters": {
+							"FolderPath": {
+								"value": "datalake-fraudes/raw/@{formatDateTime(utcNow(),'yyyy/MM/dd')}",
+								"type": "Expression"
+							},
+							"FileName": {
+								"value": "DeviceRisk_@{formatDateTime(utcNow(),'HHmmss')}.parquet",
+								"type": "Expression"
+							}
+						}
+					}
+				]
+			}
+		],
+		"folder": {
+			"name": "Pipeline_Migracion"
+		},
+		"annotations": [],
+		"lastPublishTime": "2025-11-15T04:49:38Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

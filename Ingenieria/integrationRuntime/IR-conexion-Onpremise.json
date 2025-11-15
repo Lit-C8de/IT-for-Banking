@@ -1,0 +1,6 @@
+{
+	"name": "IR-conexion-Onpremise",
+	"properties": {
+		"type": "SelfHosted"
+	}
+}

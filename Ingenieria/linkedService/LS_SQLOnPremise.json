@@ -1,0 +1,29 @@
+{
+	"name": "LS_SQLOnPremise",
+	"type": "Microsoft.DataFactory/factories/linkedservices",
+	"properties": {
+		"description": "Conexion a la base de datos bank_Transactions.",
+		"annotations": [],
+		"type": "SqlServer",
+		"typeProperties": {
+			"server": "DESKTOP-2L05QEO",
+			"database": "bank_transactions",
+			"encrypt": "mandatory",
+			"trustServerCertificate": true,
+			"authenticationType": "SQL",
+			"userName": "ADFUser",
+			"password": {
+				"type": "AzureKeyVaultSecret",
+				"store": {
+					"referenceName": "LS_KeyVault",
+					"type": "LinkedServiceReference"
+				},
+				"secretName": "sql-adf-password"
+			}
+		},
+		"connectVia": {
+			"referenceName": "IR-conexion-Onpremise",
+			"type": "IntegrationRuntimeReference"
+		}
+	}
+}

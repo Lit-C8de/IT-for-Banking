@@ -1,0 +1,54 @@
+{
+	"name": "DS_SQL_TransactionFeatures",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "LS_SQLOnPremise",
+			"type": "LinkedServiceReference"
+		},
+		"folder": {
+			"name": "OnPremiseBankTransactions"
+		},
+		"annotations": [],
+		"type": "SqlServerTable",
+		"schema": [
+			{
+				"name": "transaction_id",
+				"type": "varchar"
+			},
+			{
+				"name": "avg_txn_amount_7d",
+				"type": "decimal",
+				"precision": 14,
+				"scale": 2
+			},
+			{
+				"name": "txn_count_24h",
+				"type": "int",
+				"precision": 10
+			},
+			{
+				"name": "hour_of_day",
+				"type": "int",
+				"precision": 10
+			},
+			{
+				"name": "day_of_week",
+				"type": "int",
+				"precision": 10
+			},
+			{
+				"name": "is_holiday",
+				"type": "bit"
+			},
+			{
+				"name": "previous_response_code",
+				"type": "varchar"
+			}
+		],
+		"typeProperties": {
+			"schema": "dbo",
+			"table": "transaction_features"
+		}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

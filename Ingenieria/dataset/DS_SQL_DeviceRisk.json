@@ -1,0 +1,39 @@
+{
+	"name": "DS_SQL_DeviceRisk",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "LS_SQLOnPremise",
+			"type": "LinkedServiceReference"
+		},
+		"folder": {
+			"name": "OnPremiseBankTransactions"
+		},
+		"annotations": [],
+		"type": "SqlServerTable",
+		"schema": [
+			{
+				"name": "terminal_id",
+				"type": "varchar"
+			},
+			{
+				"name": "geo_distance_last_tx",
+				"type": "decimal",
+				"precision": 10,
+				"scale": 2
+			},
+			{
+				"name": "device_risk_level",
+				"type": "varchar"
+			},
+			{
+				"name": "country_code",
+				"type": "char"
+			}
+		],
+		"typeProperties": {
+			"schema": "dbo",
+			"table": "device_risk"
+		}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

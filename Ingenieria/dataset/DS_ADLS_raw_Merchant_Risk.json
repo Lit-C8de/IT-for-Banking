@@ -1,0 +1,38 @@
+{
+	"name": "DS_ADLS_raw_Merchant_Risk",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "LS_ADLS_DataLakeHouse",
+			"type": "LinkedServiceReference"
+		},
+		"parameters": {
+			"FIlename": {
+				"type": "string"
+			},
+			"FolderPath": {
+				"type": "string"
+			}
+		},
+		"folder": {
+			"name": "DatalakeStorageFraudes"
+		},
+		"annotations": [],
+		"type": "Parquet",
+		"typeProperties": {
+			"location": {
+				"type": "AzureBlobFSLocation",
+				"fileName": {
+					"value": "@dataset().FIlename",
+					"type": "Expression"
+				},
+				"fileSystem": {
+					"value": "@dataset().FolderPath",
+					"type": "Expression"
+				}
+			},
+			"compressionCodec": "snappy"
+		},
+		"schema": []
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

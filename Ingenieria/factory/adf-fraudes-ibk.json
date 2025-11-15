@@ -1,0 +1,9 @@
+{
+	"name": "adf-fraudes-ibk",
+	"location": "eastus",
+	"identity": {
+		"type": "SystemAssigned",
+		"principalId": "423e137a-fbd8-468f-96a9-647afc226950",
+		"tenantId": "c4a66c34-2bb7-451f-8be1-b2c26a430158"
+	}
+}

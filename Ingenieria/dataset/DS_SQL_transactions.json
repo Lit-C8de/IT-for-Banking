@@ -1,0 +1,98 @@
+{
+	"name": "DS_SQL_transactions",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "LS_SQLOnPremise",
+			"type": "LinkedServiceReference"
+		},
+		"folder": {
+			"name": "OnPremiseBankTransactions"
+		},
+		"annotations": [],
+		"type": "SqlServerTable",
+		"schema": [
+			{
+				"name": "transaction_id",
+				"type": "varchar"
+			},
+			{
+				"name": "timestamp",
+				"type": "datetime",
+				"precision": 23,
+				"scale": 3
+			},
+			{
+				"name": "account_id",
+				"type": "varchar"
+			},
+			{
+				"name": "destination_account",
+				"type": "varchar"
+			},
+			{
+				"name": "amount",
+				"type": "decimal",
+				"precision": 14,
+				"scale": 2
+			},
+			{
+				"name": "currency",
+				"type": "char"
+			},
+			{
+				"name": "transaction_type",
+				"type": "varchar"
+			},
+			{
+				"name": "channel_code",
+				"type": "varchar"
+			},
+			{
+				"name": "terminal_id",
+				"type": "varchar"
+			},
+			{
+				"name": "merchant_id",
+				"type": "varchar"
+			},
+			{
+				"name": "card_number_masked",
+				"type": "varchar"
+			},
+			{
+				"name": "auth_method",
+				"type": "varchar"
+			},
+			{
+				"name": "response_code",
+				"type": "varchar"
+			},
+			{
+				"name": "status",
+				"type": "varchar"
+			},
+			{
+				"name": "processing_time_ms",
+				"type": "int",
+				"precision": 10
+			},
+			{
+				"name": "switch_id",
+				"type": "varchar"
+			},
+			{
+				"name": "is_suspicious",
+				"type": "bit"
+			},
+			{
+				"name": "fraud_pattern",
+				"type": "varchar"
+			}
+		],
+		"typeProperties": {
+			"schema": "dbo",
+			"table": "transactions"
+		}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

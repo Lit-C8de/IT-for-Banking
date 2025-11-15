@@ -1,0 +1,46 @@
+{
+	"name": "DS_SQL_CustomerProfiles",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "LS_SQLOnPremise",
+			"type": "LinkedServiceReference"
+		},
+		"folder": {
+			"name": "OnPremiseBankTransactions"
+		},
+		"annotations": [],
+		"type": "SqlServerTable",
+		"schema": [
+			{
+				"name": "customer_id",
+				"type": "varchar"
+			},
+			{
+				"name": "customer_segment",
+				"type": "varchar"
+			},
+			{
+				"name": "account_age_days",
+				"type": "int",
+				"precision": 10
+			},
+			{
+				"name": "failed_txn_ratio_7d",
+				"type": "decimal",
+				"precision": 5,
+				"scale": 2
+			},
+			{
+				"name": "avg_time_between_txns",
+				"type": "decimal",
+				"precision": 10,
+				"scale": 2
+			}
+		],
+		"typeProperties": {
+			"schema": "dbo",
+			"table": "customer_profiles"
+		}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

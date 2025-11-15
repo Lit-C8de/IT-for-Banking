@@ -1,0 +1,35 @@
+{
+	"name": "DS_SQL_Merchant_Risk",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "LS_SQLOnPremise",
+			"type": "LinkedServiceReference"
+		},
+		"folder": {
+			"name": "OnPremiseBankTransactions"
+		},
+		"annotations": [],
+		"type": "SqlServerTable",
+		"schema": [
+			{
+				"name": "merchant_id",
+				"type": "varchar"
+			},
+			{
+				"name": "merchant_category",
+				"type": "varchar"
+			},
+			{
+				"name": "merchant_risk_score",
+				"type": "decimal",
+				"precision": 5,
+				"scale": 2
+			}
+		],
+		"typeProperties": {
+			"schema": "dbo",
+			"table": "merchant_risk"
+		}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}
