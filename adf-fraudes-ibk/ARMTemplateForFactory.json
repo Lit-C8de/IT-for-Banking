@@ -1,0 +1,979 @@
+{
+	"$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"factoryName": {
+			"type": "string",
+			"metadata": "Nombre de instancia de Data Factory",
+			"defaultValue": "adf-fraudes-ibk"
+		},
+		"LS_ADLS_DataLakeHouse_accountKey": {
+			"type": "secureString",
+			"metadata": "Cadena protegida para \"accountKey\"de \"LS_ADLS_DataLakeHouse\""
+		},
+		"LS_ADLS_DataLakeHouse_properties_typeProperties_url": {
+			"type": "string",
+			"defaultValue": "https://datalakefraudes.dfs.core.windows.net/"
+		},
+		"LS_KeyVault_properties_typeProperties_baseUrl": {
+			"type": "string",
+			"defaultValue": "https://KV-fraudes-dev.vault.azure.net/"
+		},
+		"LS_SQLOnPremise_properties_typeProperties_server": {
+			"type": "string",
+			"defaultValue": "DESKTOP-2L05QEO"
+		},
+		"LS_SQLOnPremise_properties_typeProperties_database": {
+			"type": "string",
+			"defaultValue": "bank_transactions"
+		},
+		"LS_SQLOnPremise_properties_typeProperties_userName": {
+			"type": "string",
+			"defaultValue": "ADFUser"
+		}
+	},
+	"variables": {
+		"factoryId": "[concat('Microsoft.DataFactory/factories/', parameters('factoryName'))]"
+	},
+	"resources": [
+		{
+			"name": "[concat(parameters('factoryName'), '/Copy_Transactions_RAW')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "Copy_Transactions",
+						"type": "Copy",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "SqlServerSource",
+								"sqlReaderQuery": "SELECT * FROM dbo.transactions;",
+								"queryTimeout": "02:00:00",
+								"partitionOption": "None"
+							},
+							"sink": {
+								"type": "ParquetSink",
+								"storeSettings": {
+									"type": "AzureBlobFSWriteSettings",
+									"copyBehavior": "PreserveHierarchy"
+								},
+								"formatSettings": {
+									"type": "ParquetWriteSettings"
+								}
+							},
+							"enableStaging": true,
+							"stagingSettings": {
+								"linkedServiceName": {
+									"referenceName": "LS_ADLS_DataLakeHouse",
+									"type": "LinkedServiceReference"
+								}
+							},
+							"translator": {
+								"type": "TabularTranslator",
+								"typeConversion": true,
+								"typeConversionSettings": {
+									"allowDataTruncation": true,
+									"treatBooleanAsNumber": false
+								}
+							}
+						},
+						"inputs": [
+							{
+								"referenceName": "DS_SQL_transactions",
+								"type": "DatasetReference",
+								"parameters": {}
+							}
+						],
+						"outputs": [
+							{
+								"referenceName": "DS_ADLS_raw_transactions",
+								"type": "DatasetReference",
+								"parameters": {
+									"FolderPath": {
+										"value": "datalake-fraudes/raw/@{formatDateTime(utcNow(),'yyyy/MM/dd')}",
+										"type": "Expression"
+									},
+									"FileName": {
+										"value": "transactions_@{formatDateTime(utcNow(),'HHmmss')}.parquet",
+										"type": "Expression"
+									}
+								}
+							}
+						]
+					},
+					{
+						"name": "Copy_customer_profiles",
+						"description": "Se copia el perfil del cliente.",
+						"type": "Copy",
+						"dependsOn": [
+							{
+								"activity": "Copy_Transactions",
+								"dependencyConditions": [
+									"Completed"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "SqlServerSource",
+								"queryTimeout": "02:00:00",
+								"partitionOption": "None"
+							},
+							"sink": {
+								"type": "ParquetSink",
+								"storeSettings": {
+									"type": "AzureBlobFSWriteSettings"
+								},
+								"formatSettings": {
+									"type": "ParquetWriteSettings"
+								}
+							},
+							"enableStaging": false,
+							"translator": {
+								"type": "TabularTranslator",
+								"typeConversion": true,
+								"typeConversionSettings": {
+									"allowDataTruncation": true,
+									"treatBooleanAsNumber": false
+								}
+							}
+						},
+						"inputs": [
+							{
+								"referenceName": "DS_SQL_CustomerProfiles",
+								"type": "DatasetReference",
+								"parameters": {}
+							}
+						],
+						"outputs": [
+							{
+								"referenceName": "DS_ADLS_raw_CustomerProfiles",
+								"type": "DatasetReference",
+								"parameters": {
+									"FolderPath": "datalake-fraudes/raw/@{formatDateTime(utcNow(),'yyyy/MM/dd')}",
+									"FileName": {
+										"value": "CustomerProfiles_@{formatDateTime(utcNow(),'HHmmss')}.parquet",
+										"type": "Expression"
+									}
+								}
+							}
+						]
+					},
+					{
+						"name": "Copy_Merchant_Risk",
+						"type": "Copy",
+						"dependsOn": [
+							{
+								"activity": "Copy_customer_profiles",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "SqlServerSource",
+								"queryTimeout": "02:00:00",
+								"partitionOption": "None"
+							},
+							"sink": {
+								"type": "ParquetSink",
+								"storeSettings": {
+									"type": "AzureBlobFSWriteSettings"
+								},
+								"formatSettings": {
+									"type": "ParquetWriteSettings"
+								}
+							},
+							"enableStaging": false,
+							"translator": {
+								"type": "TabularTranslator",
+								"typeConversion": true,
+								"typeConversionSettings": {
+									"allowDataTruncation": true,
+									"treatBooleanAsNumber": false
+								}
+							}
+						},
+						"inputs": [
+							{
+								"referenceName": "DS_SQL_Merchant_Risk",
+								"type": "DatasetReference",
+								"parameters": {}
+							}
+						],
+						"outputs": [
+							{
+								"referenceName": "DS_ADLS_raw_Merchant_Risk",
+								"type": "DatasetReference",
+								"parameters": {
+									"FIlename": {
+										"value": "MerchantRisk_@{formatDateTime(utcNow(),'HHmmss')}.parquet",
+										"type": "Expression"
+									},
+									"FolderPath": "datalake-fraudes/raw/@{formatDateTime(utcNow(),'yyyy/MM/dd')}"
+								}
+							}
+						]
+					},
+					{
+						"name": "Copy_TransactionFeatures",
+						"type": "Copy",
+						"dependsOn": [
+							{
+								"activity": "Copy_Merchant_Risk",
+								"dependencyConditions": [
+									"Completed"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "SqlServerSource",
+								"queryTimeout": "02:00:00",
+								"partitionOption": "None"
+							},
+							"sink": {
+								"type": "ParquetSink",
+								"storeSettings": {
+									"type": "AzureBlobFSWriteSettings"
+								},
+								"formatSettings": {
+									"type": "ParquetWriteSettings"
+								}
+							},
+							"enableStaging": false,
+							"translator": {
+								"type": "TabularTranslator",
+								"typeConversion": true,
+								"typeConversionSettings": {
+									"allowDataTruncation": true,
+									"treatBooleanAsNumber": false
+								}
+							}
+						},
+						"inputs": [
+							{
+								"referenceName": "DS_SQL_TransactionFeatures",
+								"type": "DatasetReference",
+								"parameters": {}
+							}
+						],
+						"outputs": [
+							{
+								"referenceName": "DS_ADLS_raw_TransactionsFeatures",
+								"type": "DatasetReference",
+								"parameters": {
+									"FileName": {
+										"value": "TransactionsFeatures_@{formatDateTime(utcNow(),'HHmmss')}.parquet",
+										"type": "Expression"
+									},
+									"FolderPath": "datalake-fraudes/raw/@{formatDateTime(utcNow(),'yyyy/MM/dd')}"
+								}
+							}
+						]
+					},
+					{
+						"name": "Copy_DeviceRisk",
+						"type": "Copy",
+						"dependsOn": [
+							{
+								"activity": "Copy_TransactionFeatures",
+								"dependencyConditions": [
+									"Completed"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "SqlServerSource",
+								"queryTimeout": "02:00:00",
+								"partitionOption": "None"
+							},
+							"sink": {
+								"type": "ParquetSink",
+								"storeSettings": {
+									"type": "AzureBlobFSWriteSettings"
+								},
+								"formatSettings": {
+									"type": "ParquetWriteSettings"
+								}
+							},
+							"enableStaging": false,
+							"translator": {
+								"type": "TabularTranslator",
+								"typeConversion": true,
+								"typeConversionSettings": {
+									"allowDataTruncation": true,
+									"treatBooleanAsNumber": false
+								}
+							}
+						},
+						"inputs": [
+							{
+								"referenceName": "DS_SQL_DeviceRisk",
+								"type": "DatasetReference",
+								"parameters": {}
+							}
+						],
+						"outputs": [
+							{
+								"referenceName": "DS_ADLS_raw_DeviceRisk",
+								"type": "DatasetReference",
+								"parameters": {
+									"FolderPath": {
+										"value": "datalake-fraudes/raw/@{formatDateTime(utcNow(),'yyyy/MM/dd')}",
+										"type": "Expression"
+									},
+									"FileName": {
+										"value": "DeviceRisk_@{formatDateTime(utcNow(),'HHmmss')}.parquet",
+										"type": "Expression"
+									}
+								}
+							}
+						]
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"folder": {
+					"name": "Pipeline_Migracion"
+				},
+				"annotations": [],
+				"lastPublishTime": "2025-11-15T04:49:38Z"
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/datasets/DS_SQL_transactions')]",
+				"[concat(variables('factoryId'), '/datasets/DS_ADLS_raw_transactions')]",
+				"[concat(variables('factoryId'), '/datasets/DS_SQL_CustomerProfiles')]",
+				"[concat(variables('factoryId'), '/datasets/DS_ADLS_raw_CustomerProfiles')]",
+				"[concat(variables('factoryId'), '/datasets/DS_SQL_Merchant_Risk')]",
+				"[concat(variables('factoryId'), '/datasets/DS_ADLS_raw_Merchant_Risk')]",
+				"[concat(variables('factoryId'), '/datasets/DS_SQL_TransactionFeatures')]",
+				"[concat(variables('factoryId'), '/datasets/DS_ADLS_raw_TransactionsFeatures')]",
+				"[concat(variables('factoryId'), '/datasets/DS_SQL_DeviceRisk')]",
+				"[concat(variables('factoryId'), '/datasets/DS_ADLS_raw_DeviceRisk')]",
+				"[concat(variables('factoryId'), '/linkedServices/LS_ADLS_DataLakeHouse')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/DS_ADLS_raw_CustomerProfiles')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "LS_ADLS_DataLakeHouse",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"FolderPath": {
+						"type": "string"
+					},
+					"FileName": {
+						"type": "string"
+					}
+				},
+				"folder": {
+					"name": "DatalakeStorageFraudes"
+				},
+				"annotations": [],
+				"type": "Parquet",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"fileName": {
+							"value": "@dataset().FileName",
+							"type": "Expression"
+						},
+						"fileSystem": {
+							"value": "@dataset().FolderPath",
+							"type": "Expression"
+						}
+					},
+					"compressionCodec": "snappy"
+				},
+				"schema": []
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/LS_ADLS_DataLakeHouse')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/DS_ADLS_raw_DeviceRisk')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "LS_ADLS_DataLakeHouse",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"FolderPath": {
+						"type": "string"
+					},
+					"FileName": {
+						"type": "string"
+					}
+				},
+				"folder": {
+					"name": "DatalakeStorageFraudes"
+				},
+				"annotations": [],
+				"type": "Parquet",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"fileName": {
+							"value": "@dataset().FileName",
+							"type": "Expression"
+						},
+						"fileSystem": {
+							"value": "@dataset().FolderPath",
+							"type": "Expression"
+						}
+					},
+					"compressionCodec": "snappy"
+				},
+				"schema": []
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/LS_ADLS_DataLakeHouse')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/DS_ADLS_raw_Merchant_Risk')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "LS_ADLS_DataLakeHouse",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"FIlename": {
+						"type": "string"
+					},
+					"FolderPath": {
+						"type": "string"
+					}
+				},
+				"folder": {
+					"name": "DatalakeStorageFraudes"
+				},
+				"annotations": [],
+				"type": "Parquet",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"fileName": {
+							"value": "@dataset().FIlename",
+							"type": "Expression"
+						},
+						"fileSystem": {
+							"value": "@dataset().FolderPath",
+							"type": "Expression"
+						}
+					},
+					"compressionCodec": "snappy"
+				},
+				"schema": []
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/LS_ADLS_DataLakeHouse')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/DS_ADLS_raw_TransactionsFeatures')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "LS_ADLS_DataLakeHouse",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"FileName": {
+						"type": "string"
+					},
+					"FolderPath": {
+						"type": "string"
+					}
+				},
+				"folder": {
+					"name": "DatalakeStorageFraudes"
+				},
+				"annotations": [],
+				"type": "Parquet",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"fileName": {
+							"value": "@dataset().FileName",
+							"type": "Expression"
+						},
+						"fileSystem": {
+							"value": "@dataset().FolderPath",
+							"type": "Expression"
+						}
+					},
+					"compressionCodec": "snappy"
+				},
+				"schema": []
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/LS_ADLS_DataLakeHouse')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/DS_ADLS_raw_transactions')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "LS_ADLS_DataLakeHouse",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"FolderPath": {
+						"type": "string"
+					},
+					"FileName": {
+						"type": "string"
+					}
+				},
+				"folder": {
+					"name": "DatalakeStorageFraudes"
+				},
+				"annotations": [],
+				"type": "Parquet",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"fileName": {
+							"value": "@dataset().FileName",
+							"type": "Expression"
+						},
+						"fileSystem": {
+							"value": "@dataset().FolderPath",
+							"type": "Expression"
+						}
+					},
+					"compressionCodec": "snappy"
+				},
+				"schema": []
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/LS_ADLS_DataLakeHouse')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/DS_SQL_CustomerProfiles')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "LS_SQLOnPremise",
+					"type": "LinkedServiceReference"
+				},
+				"folder": {
+					"name": "OnPremiseBankTransactions"
+				},
+				"annotations": [],
+				"type": "SqlServerTable",
+				"schema": [
+					{
+						"name": "customer_id",
+						"type": "varchar"
+					},
+					{
+						"name": "customer_segment",
+						"type": "varchar"
+					},
+					{
+						"name": "account_age_days",
+						"type": "int",
+						"precision": 10
+					},
+					{
+						"name": "failed_txn_ratio_7d",
+						"type": "decimal",
+						"precision": 5,
+						"scale": 2
+					},
+					{
+						"name": "avg_time_between_txns",
+						"type": "decimal",
+						"precision": 10,
+						"scale": 2
+					}
+				],
+				"typeProperties": {
+					"schema": "dbo",
+					"table": "customer_profiles"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/LS_SQLOnPremise')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/DS_SQL_DeviceRisk')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "LS_SQLOnPremise",
+					"type": "LinkedServiceReference"
+				},
+				"folder": {
+					"name": "OnPremiseBankTransactions"
+				},
+				"annotations": [],
+				"type": "SqlServerTable",
+				"schema": [
+					{
+						"name": "terminal_id",
+						"type": "varchar"
+					},
+					{
+						"name": "geo_distance_last_tx",
+						"type": "decimal",
+						"precision": 10,
+						"scale": 2
+					},
+					{
+						"name": "device_risk_level",
+						"type": "varchar"
+					},
+					{
+						"name": "country_code",
+						"type": "char"
+					}
+				],
+				"typeProperties": {
+					"schema": "dbo",
+					"table": "device_risk"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/LS_SQLOnPremise')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/DS_SQL_Merchant_Risk')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "LS_SQLOnPremise",
+					"type": "LinkedServiceReference"
+				},
+				"folder": {
+					"name": "OnPremiseBankTransactions"
+				},
+				"annotations": [],
+				"type": "SqlServerTable",
+				"schema": [
+					{
+						"name": "merchant_id",
+						"type": "varchar"
+					},
+					{
+						"name": "merchant_category",
+						"type": "varchar"
+					},
+					{
+						"name": "merchant_risk_score",
+						"type": "decimal",
+						"precision": 5,
+						"scale": 2
+					}
+				],
+				"typeProperties": {
+					"schema": "dbo",
+					"table": "merchant_risk"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/LS_SQLOnPremise')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/DS_SQL_TransactionFeatures')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "LS_SQLOnPremise",
+					"type": "LinkedServiceReference"
+				},
+				"folder": {
+					"name": "OnPremiseBankTransactions"
+				},
+				"annotations": [],
+				"type": "SqlServerTable",
+				"schema": [
+					{
+						"name": "transaction_id",
+						"type": "varchar"
+					},
+					{
+						"name": "avg_txn_amount_7d",
+						"type": "decimal",
+						"precision": 14,
+						"scale": 2
+					},
+					{
+						"name": "txn_count_24h",
+						"type": "int",
+						"precision": 10
+					},
+					{
+						"name": "hour_of_day",
+						"type": "int",
+						"precision": 10
+					},
+					{
+						"name": "day_of_week",
+						"type": "int",
+						"precision": 10
+					},
+					{
+						"name": "is_holiday",
+						"type": "bit"
+					},
+					{
+						"name": "previous_response_code",
+						"type": "varchar"
+					}
+				],
+				"typeProperties": {
+					"schema": "dbo",
+					"table": "transaction_features"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/LS_SQLOnPremise')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/DS_SQL_transactions')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "LS_SQLOnPremise",
+					"type": "LinkedServiceReference"
+				},
+				"folder": {
+					"name": "OnPremiseBankTransactions"
+				},
+				"annotations": [],
+				"type": "SqlServerTable",
+				"schema": [
+					{
+						"name": "transaction_id",
+						"type": "varchar"
+					},
+					{
+						"name": "timestamp",
+						"type": "datetime",
+						"precision": 23,
+						"scale": 3
+					},
+					{
+						"name": "account_id",
+						"type": "varchar"
+					},
+					{
+						"name": "destination_account",
+						"type": "varchar"
+					},
+					{
+						"name": "amount",
+						"type": "decimal",
+						"precision": 14,
+						"scale": 2
+					},
+					{
+						"name": "currency",
+						"type": "char"
+					},
+					{
+						"name": "transaction_type",
+						"type": "varchar"
+					},
+					{
+						"name": "channel_code",
+						"type": "varchar"
+					},
+					{
+						"name": "terminal_id",
+						"type": "varchar"
+					},
+					{
+						"name": "merchant_id",
+						"type": "varchar"
+					},
+					{
+						"name": "card_number_masked",
+						"type": "varchar"
+					},
+					{
+						"name": "auth_method",
+						"type": "varchar"
+					},
+					{
+						"name": "response_code",
+						"type": "varchar"
+					},
+					{
+						"name": "status",
+						"type": "varchar"
+					},
+					{
+						"name": "processing_time_ms",
+						"type": "int",
+						"precision": 10
+					},
+					{
+						"name": "switch_id",
+						"type": "varchar"
+					},
+					{
+						"name": "is_suspicious",
+						"type": "bit"
+					},
+					{
+						"name": "fraud_pattern",
+						"type": "varchar"
+					}
+				],
+				"typeProperties": {
+					"schema": "dbo",
+					"table": "transactions"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/LS_SQLOnPremise')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/LS_ADLS_DataLakeHouse')]",
+			"type": "Microsoft.DataFactory/factories/linkedServices",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"annotations": [],
+				"type": "AzureBlobFS",
+				"typeProperties": {
+					"url": "[parameters('LS_ADLS_DataLakeHouse_properties_typeProperties_url')]",
+					"accountKey": {
+						"type": "SecureString",
+						"value": "[parameters('LS_ADLS_DataLakeHouse_accountKey')]"
+					}
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/LS_KeyVault')]",
+			"type": "Microsoft.DataFactory/factories/linkedServices",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"annotations": [],
+				"type": "AzureKeyVault",
+				"typeProperties": {
+					"baseUrl": "[parameters('LS_KeyVault_properties_typeProperties_baseUrl')]"
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/LS_SQLOnPremise')]",
+			"type": "Microsoft.DataFactory/factories/linkedServices",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"description": "Conexion a la base de datos bank_Transactions.",
+				"annotations": [],
+				"type": "SqlServer",
+				"typeProperties": {
+					"server": "[parameters('LS_SQLOnPremise_properties_typeProperties_server')]",
+					"database": "[parameters('LS_SQLOnPremise_properties_typeProperties_database')]",
+					"encrypt": "mandatory",
+					"trustServerCertificate": true,
+					"authenticationType": "SQL",
+					"userName": "[parameters('LS_SQLOnPremise_properties_typeProperties_userName')]",
+					"password": {
+						"type": "AzureKeyVaultSecret",
+						"store": {
+							"referenceName": "LS_KeyVault",
+							"type": "LinkedServiceReference"
+						},
+						"secretName": "sql-adf-password"
+					}
+				},
+				"connectVia": {
+					"referenceName": "IR-conexion-Onpremise",
+					"type": "IntegrationRuntimeReference"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/integrationRuntimes/IR-conexion-Onpremise')]",
+				"[concat(variables('factoryId'), '/linkedServices/LS_KeyVault')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/IR-conexion-Onpremise')]",
+			"type": "Microsoft.DataFactory/factories/integrationRuntimes",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"type": "SelfHosted",
+				"typeProperties": {}
+			},
+			"dependsOn": []
+		}
+	]
+}

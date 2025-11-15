@@ -1,0 +1,27 @@
+{
+	"$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"factoryName": {
+			"value": "adf-fraudes-ibk"
+		},
+		"LS_ADLS_DataLakeHouse_accountKey": {
+			"value": ""
+		},
+		"LS_ADLS_DataLakeHouse_properties_typeProperties_url": {
+			"value": "https://datalakefraudes.dfs.core.windows.net/"
+		},
+		"LS_KeyVault_properties_typeProperties_baseUrl": {
+			"value": "https://KV-fraudes-dev.vault.azure.net/"
+		},
+		"LS_SQLOnPremise_properties_typeProperties_server": {
+			"value": "DESKTOP-2L05QEO"
+		},
+		"LS_SQLOnPremise_properties_typeProperties_database": {
+			"value": "bank_transactions"
+		},
+		"LS_SQLOnPremise_properties_typeProperties_userName": {
+			"value": "ADFUser"
+		}
+	}
+}
